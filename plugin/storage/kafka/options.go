@@ -32,14 +32,20 @@ const (
 	// EncodingZipkinThrift is used for spans encoded as Zipkin Thrift.
 	EncodingZipkinThrift = "zipkin-thrift"
 
-	configPrefix   = "kafka.producer"
-	suffixBrokers  = ".brokers"
-	suffixTopic    = ".topic"
-	suffixEncoding = ".encoding"
+	configPrefix           = "kafka.producer"
+	suffixBrokers          = ".brokers"
+	suffixTopic            = ".topic"
+	suffixEncoding         = ".encoding"
+	suffixRequiredAcks     = ".required.acks"
+	suffixCompression      = ".compression"
+	suffixCompressionLevel = ".compression.level"
 
-	defaultBroker   = "127.0.0.1:9092"
-	defaultTopic    = "jaeger-spans"
-	defaultEncoding = EncodingProto
+	defaultBroker           = "127.0.0.1:9092"
+	defaultTopic            = "jaeger-spans"
+	defaultEncoding         = EncodingProto
+	defaultRequiredAcks     = 1
+	defaultComression       = 0
+	defaultCompressionLevel = -1000
 )
 
 var (
@@ -69,12 +75,29 @@ func (opt *Options) AddFlags(flagSet *flag.FlagSet) {
 		defaultEncoding,
 		fmt.Sprintf(`(experimental) Encoding of spans ("%s" or "%s") sent to kafka.`, EncodingJSON, EncodingProto),
 	)
+	flagSet.Int(
+		configPrefix+suffixRequiredAcks,
+		defaultRequiredAcks,
+		"(experimental) Required kafka broker acknowledgement. default = 1, no response = 0, wait for local = 1, wait for all = -1",
+	)
+	flagSet.Int(
+		configPrefix+suffixCompression,
+		defaultComression,
+		"(experimental) Type of compression to use on messages. default = 0, none = 0, gzip = 1, snappy = 2, lz4 = 3, zstd = 4",
+	)
+	flagSet.Int(
+		configPrefix+suffixCompressionLevel,
+		defaultCompressionLevel,
+		"(experimental) Level of compression to use on messages. default= -1000, gzip = 1-9 (default = 6), snappy = none, lz4 = 1-17 (default = 9), zstd = -131072 - 22 (default = 3)",
+	)
 }
 
 // InitFromViper initializes Options with properties from viper
 func (opt *Options) InitFromViper(v *viper.Viper) {
 	opt.config = producer.Configuration{
-		Brokers: strings.Split(stripWhiteSpace(v.GetString(configPrefix+suffixBrokers)), ","),
+		Brokers:          strings.Split(stripWhiteSpace(v.GetString(configPrefix+suffixBrokers)), ","),
+		RequiredAcks:     v.GetInt(configPrefix + suffixRequiredAcks),
+		CompressionLevel: v.GetInt(configPrefix + suffixCompressionLevel),
 	}
 	opt.topic = v.GetString(configPrefix + suffixTopic)
 	opt.encoding = v.GetString(configPrefix + suffixEncoding)
